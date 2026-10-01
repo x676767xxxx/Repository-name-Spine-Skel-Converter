@@ -1,0 +1,72 @@
+name: Convert Spine 3.8.99 to 3.8.96
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Clone converter
+        run: |
+          git clone --depth 1 \
+            https://github.com/wang606/SpineSkeletonDataConverter.git \
+            converter
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++
+
+      - name: Build converter
+        run: |
+          cd converter
+          mkdir build
+          cd build
+          cmake ..
+          cmake --build . --config Release -j2
+
+      - name: Show converter
+        run: |
+          find converter/build -type f -perm -111 -print
+
+      - name: Convert to Spine 3.8.96
+        run: |
+          mkdir -p output
+
+          CONVERTER=$(find converter/build -type f -perm -111 | head -n 1)
+
+          echo "Using converter:"
+          echo "$CONVERTER"
+
+          for file in input/*.skel; do
+            [ -f "$file" ] || continue
+
+            name=$(basename "$file" .skel)
+
+            echo "Converting:"
+            echo "$file"
+
+            "$CONVERTER" \
+              "$file" \
+              "output/${name}_3.8.96.skel" \
+              -v 3.8.96
+          done
+
+      - name: Check output
+        run: |
+          echo "Generated files:"
+          ls -lh output
+
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: Spine-3.8.96
+          path: output/
